@@ -1307,6 +1307,30 @@ def test_match_query_fuzziness_search(tmp_db, options, expected):
     assert sorted(row["text"] for row in results) == sorted(expected)
 
 
+@pytest.mark.asyncio
+async def test_phrase_query_without_column(mem_db_async):
+    table = await mem_db_async.create_table(
+        "phrases", pa.table({"id": [0, 1], "text": ["puppy runs fast", "runs puppy"]})
+    )
+    await table.create_index("text", config=FTS(with_position=True))
+
+    # A quoted string without columns becomes a phrase query whose column is left
+    # to query planning, so converting it back to Python must keep it unset.
+    query_obj = table.query().nearest_to_text('"puppy runs"').to_query_object()
+    assert query_obj.full_text_query.query == PhraseQuery("puppy runs")
+
+    results = (
+        await table.query()
+        .nearest_to_text(PhraseQuery("puppy runs"))
+        .select(["id"])
+        .to_list()
+    )
+    assert [row["id"] for row in results] == [0]
+
+    expected = '{"phrase":{"column":null,"terms":"puppy runs","slop":0}}'
+    assert PhraseQuery("puppy runs").to_json() == expected
+
+
 def test_fts_query_to_json():
     """Test that FTS query to_json() produces valid JSON strings with exact format."""
 
