@@ -2178,6 +2178,46 @@ async def test_query_serialization_async(table_async: AsyncTable):
     )
 
 
+@pytest.mark.asyncio
+async def test_query_serialization_async_fast_search_postfilter(
+    table_async: AsyncTable,
+):
+    q = table_async.query().where("id = 1").postfilter().fast_search().to_query_object()
+    check_set_props(
+        q, filter="id = 1", postfilter=True, fast_search=True, with_row_id=False
+    )
+
+    match_query = MatchQuery("foo", "text")
+    q = (
+        (await table_async.search(match_query))
+        .where("id = 1")
+        .postfilter()
+        .fast_search()
+        .to_query_object()
+    )
+    check_set_props(
+        q,
+        full_text_query=FullTextSearchQuery(columns=None, query=match_query),
+        filter="id = 1",
+        postfilter=True,
+        fast_search=True,
+        with_row_id=False,
+    )
+
+    q = (await table_async.search([5.0, 6.0])).fast_search().to_query_object()
+    check_set_props(
+        q,
+        vector=[pa.array([5.0, 6.0], type=pa.float32())],
+        fast_search=True,
+        postfilter=False,
+        minimum_nprobes=None,
+        maximum_nprobes=None,
+        with_row_id=False,
+        bypass_vector_index=False,
+        limit=10,
+    )
+
+
 def test_query_schema(tmp_path):
     db = lancedb.connect(tmp_path)
     tbl = db.create_table(

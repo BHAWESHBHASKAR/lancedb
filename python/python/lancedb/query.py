@@ -911,6 +911,8 @@ class Query(pydantic.BaseModel):
         query.full_text_query = req.full_text_search
         query.columns = req.select
         query.with_row_id = req.with_row_id
+        # Like the sync builders, leave fast_search unset unless it was enabled.
+        query.fast_search = True if req.fast_search else None
         # use_rte is a genuine tri-state (None / True / False); preserve it as-is
         # so a round-tripped query keeps an explicit False.
         query.use_rte = req.use_rte
